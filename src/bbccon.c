@@ -35,13 +35,15 @@ typedef int timer_t ;
 #define ENABLE_VIRTUAL_TERMINAL_INPUT 0x200
 BOOL WINAPI K32EnumProcessModules (HANDLE, HMODULE*, DWORD, LPDWORD) ;
 #else
+#ifndef __BREW__
 #include <termios.h>
-#include <signal.h>
-#include <pthread.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
 #include <sys/ioctl.h>
 #include "dlfcn.h"
+#endif
+#include <signal.h>
+#include <pthread.h>
+#include <sys/stat.h>
 #define myftell ftell
 #define myfseek fseek
 #define PLATFORM "Linux"
@@ -60,6 +62,11 @@ typedef dispatch_source_t timer_t ;
 dispatch_queue_t timerqueue ;
 #undef PLATFORM
 #define PLATFORM "MacOS"
+#endif
+
+#ifdef __BREW__
+#undef PLATFORM
+#define PLATFORM "Brew"
 #endif
 
 #undef MAX_PATH
@@ -226,7 +233,7 @@ static void *mymap (unsigned int size)
 	    {
 		sscanf (line, "%p-%p", &start, &finish) ;
 		start = (void *)((size_t)start & -0x1000) ; // page align (GCC extension)
-		if (start >= (base + size)) 
+		if (start >= (base + size))
 			return base ;
 		if (finish > (void *)0xFFFFF000)
 			return NULL ;
@@ -306,11 +313,17 @@ int getkey (unsigned char *pkey)
 	return 0 ;
 }
 
+#if defined __BREW__
+static int tick_cnt = 0;
+#endif
+
 // Get millisecond tick count:
 unsigned int GetTicks (void)
 {
 #ifdef _WIN32
 	return timeGetTime () ;
+#elif defined __BREW__
+    return tick_cnt++;
 #else
 	struct timespec ts ;
 	if (clock_gettime (CLOCK_MONOTONIC, &ts))
@@ -360,7 +373,7 @@ int stdin_handler (int *px, int *py)
 		if (kbchk ())
 		    {
 			ch = kbget () ;
-				
+
 			if (ch == 0x1B)
 			    {
 				if (p != report)
@@ -376,7 +389,7 @@ int stdin_handler (int *px, int *py)
 				    {
 					p = q ;
 					q = report ;
-								
+
 					if (ch == 'R')
 					    {
 						int row = 0, col = 0 ;
@@ -1078,10 +1091,15 @@ void mouseto (int x, int y)
 // Get address of an API function:
 void *sysadr (char *name)
 {
+#ifdef __BREW__
+	printf("===================== ATTEMPT TO CALL API `%s`\n", name);
+	return NULL;
+#else
 	void *addr = NULL ;
 	if (addr != NULL)
-		return addr ; 
+		return addr ;
 	return dlsym (RTLD_DEFAULT, name) ;
+#endif
 }
 
 // Call an emulated OS subroutine (if CALL or USR to an address < 0x10000)
@@ -1118,7 +1136,7 @@ int oscall (int addr)
 
 		case 0xFFF7: // OSCLI
 			oscli (xy) ;
-			return 0 ; 
+			return 0 ;
 
 		default:
 			error (8, NULL) ; // 'Address out of range'
@@ -1342,7 +1360,7 @@ unsigned char osbget (void *chan, int *peof)
 				if (peof != NULL)
 					*peof = 1 ;
 				return 0 ;
-			    } 
+			    }
 		    }
 		return buffer[pfcb->p++] ;
 	    }
@@ -1534,7 +1552,7 @@ static void UserTimerProc (UINT uUserTimerID, UINT uMsg, void *dwUser, void *dw1
 
 timer_t StartTimer (int period)
 {
-	return timeSetEvent (period, 0, (LPTIMECALLBACK) UserTimerProc, 0, TIME_PERIODIC) ; 
+	return timeSetEvent (period, 0, (LPTIMECALLBACK) UserTimerProc, 0, TIME_PERIODIC) ;
 }
 
 void StopTimer (timer_t timerid)
@@ -1545,7 +1563,7 @@ void StopTimer (timer_t timerid)
 void SystemIO (int flag)
 {
 	if (!flag)
-		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT) ; 
+		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT) ;
 }
 #endif
 
@@ -1652,6 +1670,30 @@ void SystemIO (int flag)
 }
 #endif
 
+#ifdef __BREW__
+static void UserTimerProc (int sig, siginfo_t *si, void *uc)
+{
+	printf("BREW UserTimerProc needs implementation\n");
+}
+
+timer_t StartTimer (int period)
+{
+	printf("BREW StartTimer needs implementation\n");
+	timer_t timerid ;
+	return timerid ;
+}
+
+void StopTimer (timer_t timerid)
+{
+	printf("BREW StopTimer needs implementation\n");
+}
+
+void SystemIO (int flag)
+{
+	printf("BREW SystemIO needs implementation\n");
+}
+#endif
+
 static void SetLoadDir (char *path)
 {
 	char temp[MAX_PATH] ;
@@ -1724,7 +1766,7 @@ pthread_t hThread = 0 ;
 	// Now commit the initial amount to physical RAM:
 
 	if (base != NULL)
-		userRAM = mmap (base, MaximumRAM, PROT_EXEC | PROT_READ | PROT_WRITE, 
+		userRAM = mmap (base, MaximumRAM, PROT_EXEC | PROT_READ | PROT_WRITE,
 					MAP_FIXED | MAP_PRIVATE | MAP_ANON, -1, 0) ;
 
 #endif
@@ -1736,14 +1778,23 @@ pthread_t hThread = NULL ;
 	platform = 2 ;
 
 	while ((MaximumRAM >= MINIMUM_RAM) &&
-				((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM, 
-						PROT_EXEC | PROT_READ | PROT_WRITE, 
+				((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM,
+						PROT_EXEC | PROT_READ | PROT_WRITE,
 						MAP_PRIVATE | MAP_ANON, -1, 0))) &&
-				((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM, 
-						PROT_READ | PROT_WRITE, 
+				((void*)-1 == (userRAM = mmap ((void *)0x10000000, MaximumRAM,
+						PROT_READ | PROT_WRITE,
 						MAP_PRIVATE | MAP_ANON, -1, 0))))
 		MaximumRAM /= 2 ;
 #endif
+
+#ifdef __BREW__
+	platform = 1 ;
+
+	userRAM = malloc(MaximumRAM);
+	memset(userRAM, 0, MaximumRAM);
+
+#endif
+
 
 	if ((userRAM == NULL) || (userRAM == (void *)-1))
 	    {
@@ -1751,7 +1802,7 @@ pthread_t hThread = NULL ;
 		return 9 ;
 	    }
 
-#if defined __x86_64__ || defined __aarch64__ 
+#if defined __x86_64__ || defined __aarch64__
 	platform |= 0x40 ;
 #endif
 
@@ -1876,6 +1927,7 @@ pthread_t hThread = NULL ;
 	strcat (szLibrary, "\\lib\\") ;
 	strcat (szUserDir, "\\bbcbasic\\") ;
 	mkdir (szUserDir) ;
+#elif defined __BREW__
 #else
 	strcat (szTempDir, "/") ;
 	strcat (szLibrary, "/lib/") ;
@@ -1894,12 +1946,15 @@ pthread_t hThread = NULL ;
 #ifdef _WIN32
 	// n.b.  Description of DISABLE_NEWLINE_AUTO_RETURN at MSDN is completely wrong!
 	// What it actually does is to disable converting LF into CRLF, not wrap action.
-	if (GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), (LPDWORD) &orig_stdout)) 
+	if (GetConsoleMode(GetStdHandle(STD_OUTPUT_HANDLE), (LPDWORD) &orig_stdout))
 		SetConsoleMode (GetStdHandle(STD_OUTPUT_HANDLE), orig_stdout | ENABLE_WRAP_AT_EOL_OUTPUT |
                                 ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN) ;
-	if (GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), (LPDWORD) &orig_stdin)) 
-		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT) ; 
+	if (GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), (LPDWORD) &orig_stdin))
+		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT) ;
 	hThread = CreateThread (NULL, 0, myThread, 0, 0, NULL) ;
+#elif defined __BREW__
+	// Initalize terminal under BREW
+	printf("BREW CONSOLE PROBABLY DOESNT WORK AT THE MOMENT!!!!!\n");
 #else
 	tcgetattr (STDIN_FILENO, &orig_termios) ;
 	struct termios raw = orig_termios ;
@@ -1937,6 +1992,7 @@ pthread_t hThread = NULL ;
 		SetConsoleMode (GetStdHandle(STD_OUTPUT_HANDLE), orig_stdout) ;
 	if (orig_stdin != -1)
 		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), orig_stdin) ;
+#elif defined __BREW__
 #else
 	if (isatty (STDOUT_FILENO))
 		printf ("\033[0m\033[!p") ;

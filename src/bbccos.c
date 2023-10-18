@@ -17,6 +17,7 @@
 #include "lfswrap.h"
 extern char *szLoadDir ;  // @dir$
 extern int dirlen;
+#elif defined __BREW__
 #else
 #include <dirent.h>
 #endif
@@ -101,7 +102,7 @@ enum {
 		STEREO, TEMPO, TIMER, TV, TYPE, UNLOCK, VOICE } ;
 
 // Change to a new screen mode:
-static void newmode (short wx, short wy, short cx, short cy, short nc, signed char bc) 
+static void newmode (short wx, short wy, short cx, short cy, short nc, signed char bc)
 {
 	printf ("\033[8;%d;%dt", wy/cy, wx/cx) ;
 
@@ -122,7 +123,7 @@ static void newmode (short wx, short wy, short cx, short cy, short nc, signed ch
 }
 
 //VDU 22,n - MODE n
-static void modechg (char al) 
+static void modechg (char al)
 {
 	short wx, wy, cx, cy, nc ;
 
@@ -180,7 +181,7 @@ static void newline (int *px, int *py)
 		    {
 			usleep (5000) ;
 			stdin_handler (NULL, NULL) ;
-		    } 
+		    }
 		while ((getkey (&ch) == 0) && ((flags & (ESCFLG | KILL)) == 0)) ;
 	    }
 }
@@ -584,7 +585,9 @@ void oscli (char *cmd)
 	char cpy[256] ;
 	char path[MAX_PATH], path2[MAX_PATH] ;
 	FILE *srcfile, *dstfile ;
+#ifndef __BREW__
 	DIR *d ;
+#endif
 	char *p, *q, dd ;
 	unsigned char flag ;
 
@@ -702,6 +705,7 @@ void oscli (char *cmd)
 				error (254, "Bad command") ;	// Bad command
 			return ;
 
+#ifndef __BREW__
 		case DIRCMD:
 			setup (path, p, ".bbc", ' ', &flag) ;
 			if ((flag & BIT0) == 0)
@@ -770,7 +774,7 @@ void oscli (char *cmd)
 			closedir (d) ;
 			crlf () ;
 			return ;
-
+#endif // __BREW__
 		case ESC:
 			if (onoff (p))
 				flags &= ~ESCDIS ;
@@ -926,11 +930,13 @@ void oscli (char *cmd)
 			fclose (srcfile ) ;
 			return ;
 
+#ifndef __BREW__
 		case LOCK:
 			setup (path, p, ".bbc", ' ', NULL) ;
 			if (0 != chmod (path, _S_IREAD))
 				error (254, "Bad command") ;
 			return ;
+#endif // __BREW__
 
 		case LOWERCASE:
 			if (onoff (p))
@@ -939,6 +945,7 @@ void oscli (char *cmd)
 				liston &= ~BIT3 ;
 			return ;
 
+#ifndef __BREW__
 		case MD:
 		case MKDIR:
 			setup (path, p, "", ' ', NULL) ;
@@ -949,13 +956,15 @@ void oscli (char *cmd)
 #endif
 				error (254, "Bad command") ;
 			return ;
-
+#endif // __BREW__
+#ifndef __BREW__
 		case RD:
 		case RMDIR:
 			setup (path, p, "", ' ', NULL) ;
 			if (0 != rmdir (path))
 				error (254, "Bad command") ;
 			return ;
+#endif // __BREW__
 
 		case REFRESH:
 			return ;
@@ -1049,7 +1058,7 @@ void oscli (char *cmd)
 			if (n == 0)
 				return ;
 			StopTimer (UserTimerID) ;
-			UserTimerID = StartTimer (n) ; 
+			UserTimerID = StartTimer (n) ;
 			return ;
 
 		case TV:
@@ -1078,11 +1087,13 @@ void oscli (char *cmd)
 			crlf () ; // Zero COUNT
 			return ;
 
+#ifndef __BREW__
 		case UNLOCK:
 			setup (path, p, ".bbc", ' ', NULL) ;
 			if (0 != chmod (path, _S_IREAD | _S_IWRITE))
 				error (254, "Bad command") ;
 			return ;
+#endif // __BREW__
 
 		case INPUT:
 			n = 0 ;
@@ -1127,7 +1138,7 @@ void oscli (char *cmd)
 				    }
 				n = fread (buff, 1, 16 - (b & 15), srcfile) ;
 				if (n <= 0) break ;
-				if ((h > 0) && (n > h)) n = h ; 
+				if ((h > 0) && (n > h)) n = h ;
 				memset (path, ' ', 80) ;
 				sprintf (path, "%08X  ", b) ;
 				for (i = 0; i < n; i++)

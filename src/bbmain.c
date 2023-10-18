@@ -62,7 +62,7 @@ static const signed char comnds[] = {
 	0x1E,'R','E','N','U','M','B','E','R',
 	0x1F,'S','A','V','E',
 	0x00,0x7F } ;
-	
+
 // List of token values and associated keywords.
 // If a keyword is followed by a space it will only
 // match the word followed immediately by a delimiter.
@@ -215,7 +215,7 @@ static const signed char keywds[] = {
 
 // Error messages:
 
-static char* errwds[] = {
+static const char* errwds[] = {
 	"No room", 		// 0
 	"Jump out of range", 	// 1
 	"Bad immediate constant", // 2
@@ -287,7 +287,7 @@ static signed char list2[] = {TTHEN, TELSE, TREPEAT, TERROR, TCLOSE, TMOUSE, TMO
 int range0 (char c)
 {
 	return (((c >= '_') && (c <= '{')) ||
-	        ((c >= '@') && (c <= 'Z')) || 
+	        ((c >= '@') && (c <= 'Z')) ||
 	        ((c >= '0') && (c <= '9')) ||
 		((c >= '#') && (c <= '&')) ||
 	         (c == '(') || (c == '.')) ;
@@ -361,7 +361,7 @@ signed char *search (signed char *edx, signed char token)
 		edx += ll ;
 	if (ll)
 		return edx + 3 ;
-	return NULL ; 
+	return NULL ;
 }
 
 // Encode line number into pseudo binary form.
@@ -642,7 +642,7 @@ void clear (void)
 	pfree = lomem + 4 * fastvars ;
 	memset (dynvar, 0, 4 * (54 + 2)) ;
 	memset (flist, 0, sizeof(void *) * 33 + 8) ;
-        // link00 is a non-aligned 32-bit word 
+        // link00 is a non-aligned 32-bit word
         for(i=0; i<4; i++)
             ((volatile char *)&link00)[i]=0;
 }
@@ -698,7 +698,7 @@ signed char * findl (unsigned int edx)
 	    }
 	edx &= 0xFFFF ;
 	while (edx > SLOAD(ebx + 1))
-		ebx += (int)*(unsigned char *)ebx ; 
+		ebx += (int)*(unsigned char *)ebx ;
 	if (edx == SLOAD(ebx + 1))
 		return ebx ;
 	return NULL ;
@@ -740,34 +740,34 @@ char * allocs (unsigned int *ps, int len)
 {
 	char *addr ;
 	node *head ;
-	int new = 0, old = 0, size ;
+	int new_str = 0, old = 0, size ;
 
 	if (len)
-		new = 32 - __builtin_clz (len) ;
+		new_str = 32 - __builtin_clz (len) ;
 	if (ULOAD(ps+1))
 		old = 32 - __builtin_clz (ULOAD(ps+1)) ;
 	USTORE(ps+1, len) ;
 
-// if old and new strings have the same allocation, just change the length:
+// if old and new_str strings have the same allocation, just change the length:
 
-	if (old == new)
+	if (old == new_str)
 	    {
-		return ULOAD(ps) + (char *) zero ; 
+		return ULOAD(ps) + (char *) zero ;
 	    }
 
-	size = ((1 << new) - 1) ; // new allocation
+	size = ((1 << new_str) - 1) ; // new allocation
 
 // the allocations differ: so first see if new allocation is in free list;
 // if it is, just swap with old allocation:
 
-	if (flist[new] != NULL)
+	if (flist[new_str] != NULL)
 	    {
-		head = flist[new] ;
-		flist[new] = head->next ; // remove from 'new' list
+		head = flist[new_str] ;
+		flist[new_str] = head->next ; // remove from 'new' list
 		head->next = flist[old] ;
 		flist[old] = head ; 	  // insert into 'old' list
 		addr = head->data ;
-		head->data = ULOAD(ps) + (char *) zero ; 
+		head->data = ULOAD(ps) + (char *) zero ;
 		USTORE(ps, addr - (char *) zero) ;
 		return addr ;
 	    }
@@ -791,7 +791,7 @@ char * allocs (unsigned int *ps, int len)
 	    {
 		if (flist[0]) // spare node available?
 		    {
-			head = flist[0] ; 
+			head = flist[0] ;
 			flist[0] = head->next ;
 		    }
 		else
@@ -818,7 +818,7 @@ char * allocs (unsigned int *ps, int len)
 // Allocate memory for a temporary string:
 //  For lengths < ACCSLEN use the string accumulator
 //  For lengths >= ACCSLEN allocate from the heap
-char *alloct (int len) 
+char *alloct (int len)
 {
 	if (len < ACCSLEN)
 		return accs ;
@@ -890,7 +890,7 @@ int arrlen (void **pebx)
 	    }
 	*pebx = ebx ;
 	return edx ;
-} 
+}
 
 // Process array subscripts
 // Returns offset into array data
@@ -920,12 +920,12 @@ static int getsub (void **pebx, unsigned char *ptype)
 // Make struct.array&() look like a NUL-terminated string:
 static int getsbs (void *ebx, unsigned char *ptype)
 {
-	if (nxt () == ')') 
+	if (nxt () == ')')
 	    {
 		if (*ptype != 1)
 			error (15, NULL) ;
 		esi++ ; // skip )
-		*ptype = 130 ; 
+		*ptype = 130 ;
 		return 0 ;
 	    }
 	return getsub (&ebx, ptype) ;
@@ -938,7 +938,7 @@ static int getsbs (void *ebx, unsigned char *ptype)
 //            4 = signed integer
 //            8 = 64-bit floating point
 //           10 = 80-bit floating point
-//           16 = structure (64-bit) 
+//           16 = structure (64-bit)
 //           24 = structure (32-bit)
 //           40 = 64-bit signed integer
 //          136 = (moveable) string
@@ -950,7 +950,7 @@ void *create (unsigned char **pedi, unsigned char *ptype)
 
 	while (range1 (al = *esi++))
 		*edi++ = al ;
-	switch (al) 
+	switch (al)
 	    {
 		case '%':
 			if (*esi == al)
@@ -1027,7 +1027,7 @@ void * putdef (void *ebx)
 	unsigned char type ;
 	unsigned char *edi = pfree + (unsigned char *) zero ;
 
-	USTORE(edi, ULOAD(ebx)) ; 
+	USTORE(edi, ULOAD(ebx)) ;
 	USTORE(ebx, edi - (unsigned char *) zero) ;
 	edi += 4 ;
 
@@ -1064,7 +1064,7 @@ static void *scanll (heapptr *base, signed char *edi)
 		    ((al == 0) && (*esi != '%') && (*esi != '(') && !range1(*(esi-1))) || // PRINT a#b
 		    ((al == '{') && (*++edi == 0) && (*esi == '.')) || // structure member
 		    ((al == '%') && (base == NULL) && (*(esi-1) == '%') && (*esi != '(') && (*++edi == 0)) ||
-		    ((al == '%') && (base == NULL) && (*(esi-1) == '%') && (*esi == '(') && 
+		    ((al == '%') && (base == NULL) && (*(esi-1) == '%') && (*esi == '(') &&
 						(*++edi == '(') && (*++edi == 0)))
 		    {
 			if (base && prev && ((this - zero) != *base))
@@ -1158,7 +1158,7 @@ static unsigned char getype (char *ptr)
 			return 136 ;
 
 		case '{':
-			return STYPE ; 
+			return STYPE ;
 
 		case '&':
 			return 1 ;
@@ -1322,13 +1322,13 @@ void * getvar (unsigned char *ptype)
 				signed char *edx = VLOAD(ebx) ; // template pointer
 				if (edx == NULL)
 					error (26, NULL); // 'No such variable'
-				esi++ ; 
+				esi++ ;
 				edx += 4 ; 		    // skip size record
 				ebx = scanll (NULL, edx) ;
 				if (ebx == NULL)
 					error (26, NULL); // 'No such variable'
 				*ptype = getype (ebx) ;
-				if (*ptype & BIT4) 
+				if (*ptype & BIT4)
 				    {
 					ebp += ILOAD((int *)ebx + STRIDE) ;  // data pointer
 					continue ; // recurse into nested structure
@@ -1447,7 +1447,7 @@ static void fixup (signed char *ptr, int nlines, unsigned short start, unsigned 
 	while ((c = *ptr++) != 0x0D)
 	    {
 		if (c == '"') quote = !quote ;
-		if ((c == TLINO) && !quote) 
+		if ((c == TLINO) && !quote)
 		    {
 			int i ;
 			unsigned char ah = *(unsigned char *)ptr++ ;
@@ -1555,7 +1555,7 @@ int basic (void *ecx, void *edx, void *prompt)
 		    {
 			sprintf (accs, "%5hu ", autonum) ;
 			text (accs) ;
-		    }			
+		    }
 		else if (autoinc)
 			autoinc = 0 ;
 		else
@@ -1584,7 +1584,7 @@ int basic (void *ecx, void *edx, void *prompt)
 			clear () ;
 			n = strlen (buff) + 3 ;
 			while (lino > SLOAD(tmp + 1))
-				tmp += (int)*(unsigned char *)tmp ; 
+				tmp += (int)*(unsigned char *)tmp ;
 			if (lino == SLOAD(tmp + 1))
 				memmove (tmp, tmp + *(unsigned char *)tmp,
 				gettop (vpage + zero, NULL) - tmp + 3 - *(unsigned char *)tmp) ;
@@ -1667,7 +1667,7 @@ int basic (void *ecx, void *edx, void *prompt)
 					tmp = strchr (buff, TIF) ;
 					while ((tmp != NULL) && (*(++tmp) == ' ')) ;
 					while (*esi && (SLOAD(esi + 1) < lo))
-						esi += (int)*(unsigned char *)esi ; 
+						esi += (int)*(unsigned char *)esi ;
 					while (*esi && (SLOAD(esi + 1) <= hi))
 					    {
 						trap () ;
@@ -1687,7 +1687,7 @@ int basic (void *ecx, void *edx, void *prompt)
 					esi = vpage + (signed char *) zero ;
 					while (*esi)
 					    {
-						esi += (int)*(unsigned char *)esi ; 
+						esi += (int)*(unsigned char *)esi ;
 						if (*(esi-1) != 0x0D) break ;
 					    }
 					if (*(esi-1) != 0x0D)
@@ -1720,7 +1720,7 @@ int basic (void *ecx, void *edx, void *prompt)
 					clear () ;
 					break ;
 
-				case 0x1D: // NEW 
+				case 0x1D: // NEW
 					*(signed char *)(vpage + zero) = 0 ;
 					break ;
 
@@ -1734,12 +1734,12 @@ int basic (void *ecx, void *edx, void *prompt)
 					n = 0 ;
 					while (*esi)
 					    {
-						SSTORE(lomem + zero + 2*n, 
+						SSTORE(lomem + zero + 2*n,
 							SLOAD(esi + 1)) ;
 						esi += *(unsigned char *)esi ;
 						n++ ;
 					    }
-					if ((lo + n*hi - hi) > 65535) error (20, NULL) ; 
+					if ((lo + n*hi - hi) > 65535) error (20, NULL) ;
 					esi = vpage + (signed char *) zero ;
 					lino = lo ;
 					while (*esi)

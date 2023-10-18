@@ -24,7 +24,11 @@
 #define PAGE_OFFSET ACCSLEN + 0x1300     // Offset of PAGE from memory base
 #endif
 #define MINIMUM_RAM PAGE_OFFSET+0x20000  // Minimum amount of RAM to allocate
+#ifdef __BREW__
+#define MAXIMUM_RAM MINIMUM_RAM  // Maximum amount of RAM to allocate
+#else
 #define MAXIMUM_RAM 0x10000000  // Maximum amount of RAM to allocate
+#endif // __BREW__
 
 #if (PAGE_OFFSET < 0x10000) && (defined(__x86_64__) || defined(__aarch64__))
 #error "PAGE must be at least 64K above memory base on 64-bit platforms"
@@ -66,7 +70,7 @@
 #define ESCDIS          0x40
 #define ALERT           0x20
 #define FLASH           0x10
-#define PHASE           0x08    
+#define PHASE           0x08
 #define PAUSE           0x04
 #define SSTEP           0x02
 #define KILL            0x01
@@ -162,7 +166,7 @@ extern void* filbuf[] ;
 extern FCB fcbtab[MAX_FILES] ;  // Table of FCBs
 extern unsigned char *keyptr ;	// Pointer to *KEY string
 extern char* usrchr ;		// User-defined characters (indirect)
-extern char* keybdq ;		// Keyboard queue (indirect) 
+extern char* keybdq ;		// Keyboard queue (indirect)
 extern int* eventq ;		// Event queue (indirect)
 extern unsigned char vduq[] ;	// VDU queue (different from asm version)
 extern unsigned char queue ;	// VDU queue status
