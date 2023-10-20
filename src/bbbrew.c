@@ -10,7 +10,7 @@ char *realpath(const char *restrict path, char *restrict resolved_path)
 {
     if (resolved_path == NULL)
         resolved_path = malloc(strlen(path)+1);
-    strcpy(path, resolved_path);
+    strcpy((char *)path, resolved_path);
     return resolved_path;
 }
 

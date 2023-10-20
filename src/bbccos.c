@@ -521,6 +521,7 @@ static int onoff (char *p)
 	return !n ;
 }
 
+#ifndef __BREW__
 // Wildcard string compare
 // First string may contain ? and * wildcards
 static int wild (char *ebx, char *edx)
@@ -578,6 +579,7 @@ static int wild (char *ebx, char *edx)
 	}
 	return 0 ;
 }
+#endif // __BREW__
 
 void oscli (char *cmd)
 {
@@ -587,8 +589,9 @@ void oscli (char *cmd)
 	FILE *srcfile, *dstfile ;
 #ifndef __BREW__
 	DIR *d ;
+	char dd ;
 #endif
-	char *p, *q, dd ;
+	char *p, *q;
 	unsigned char flag ;
 
 	while (*cmd == ' ') cmd++ ;

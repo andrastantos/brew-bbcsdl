@@ -7,10 +7,11 @@
 # sudo apt-get install libsdl2-net-2.0-0
 # sudo apt-get install nasm
 
-TARGET=brew
+TARGET = brew
 
 SDL_LIB = -L/usr/include -lSDL2 -lSDL2main -lSDL2_ttf -lSDL2_net -ldl -lm
 LBITS := $(shell getconf LONG_BIT)
+#LBITS = 32
 
 VPATH = ../../src ../../include
 
@@ -30,70 +31,85 @@ LIB_CLI_EXTRA =
 
 ifeq ($(TARGET),brew)
 CXX = brew-none-elf-gcc
-CXX_FLAGS = -Wall -I ../../include
+CXX_FLAGS = -Wall -I ../../include -g -Og
 OBJ_CORE += bbbrew.o
+OBJCOPY = brew-none-elf-objcopy
+EXE_EXT = .elf
+ASM_POSTFIX = _brew
 else
 CXX = gcc
-CXX_FLAGS = -Wall -pthread -I ../../include
+CXX_FLAGS = -Wall -pthread -I ../../include -g -O2
+OBJCOPY = objcopy
+EXE_EXT = 
+ASM_POSTFIX = _x86_64
 endif
+CXX_FLAGS += -ffunction-sections -fdata-sections -Wl,--gc-sections -Xlinker -Map=bbcb.map 
 
 
 OBJ = $(OBJ_CORE) $(OBJ_CLI_EXTRA)
 LIB = $(LIB_CORE) $(LIB_CLI_EXTRA)
 
 ifeq ($(TARGET),brew)
-all: bbcb
+all: bbcb$(EXE_EXT) bbcb.bin
 else
-all: bbcb libstb.so
+all: bbcb$(EXE_EXT)
 endif
 
+clean:
+	-rm *.o
+	-rm bbcb$(EXE_EXT)
+	-rm bbcb.bin
+	-rm bbcb.map
+	
+build: clean all
+
 bbmain.o: bbmain.c BBC.h
-	$(CXX) $(CXX_FLAGS) -c -O2 -freg-struct-return -ffast-math -fno-finite-math-only $< -o $@
+	$(CXX) $(CXX_FLAGS) -c -freg-struct-return -ffast-math -fno-finite-math-only $< -o $@
 
 bbexec.o: bbexec.c BBC.h
-	$(CXX) $(CXX_FLAGS) -c -O2 -freg-struct-return -ffast-math -fno-finite-math-only $< -o $@
+	$(CXX) $(CXX_FLAGS) -c -freg-struct-return -ffast-math -fno-finite-math-only $< -o $@
 
 bbccon.o: bbccon.c bbccon.h BBC.h
-	$(CXX) $(CXX_FLAGS) -c -O2 $< -o $@
+	$(CXX) $(CXX_FLAGS) -c $< -o $@
 
 bbccos.o: bbccos.c bbccon.h BBC.h
-	$(CXX) $(CXX_FLAGS) -c -O2 $< -o $@
+	$(CXX) $(CXX_FLAGS) -c $< -o $@
 
 bbpico.o: bbpico.c bbccon.h BBC.h
-	$(CXX) $(CXX_FLAGS) -c -O2 $< -o $@
+	$(CXX) $(CXX_FLAGS) -c $< -o $@
 
 bbeval.o: bbeval.c BBC.h
-	$(CXX) $(CXX_FLAGS) -Wno-array-bounds -c -O2 -freg-struct-return -ffast-math -fno-finite-math-only $< -o $@
+	$(CXX) $(CXX_FLAGS) -Wno-array-bounds -c -freg-struct-return -ffast-math -fno-finite-math-only $< -o $@
 
-bbasmb.o: bbasmb_x86_64.c BBC.h
+bbasmb.o: bbasmb$(ASM_POSTFIX).c BBC.h
 	$(CXX) $(CXX_FLAGS) -c -Os $< -o $@
 
 bbcmos.o: bbcmos.c bbcsdl.h
-	$(CXX) $(CXX_FLAGS) -Wno-unused-result -Wno-array-bounds -c -msse2 -O2 $< -o $@
+	$(CXX) $(CXX_FLAGS) -Wno-unused-result -Wno-array-bounds -c -msse2 $< -o $@
 
 bbccli.o: bbccli.c bbcsdl.h
-	$(CXX) $(CXX_FLAGS) -Wno-unused-result -c -Os $< -o $@
+	$(CXX) $(CXX_FLAGS) -Wno-unused-result -c $< -o $@
 
 bbcvdu.o: bbcvdu.c bbcsdl.h
-	$(CXX) $(CXX_FLAGS) -c -Os $< -o $@
+	$(CXX) $(CXX_FLAGS) -c $< -o $@
 
 bbcvtx.o: bbcvtx.c bbcsdl.h
-	$(CXX) $(CXX_FLAGS) -c -O3 $< -o $@
+	$(CXX) $(CXX_FLAGS) -c $< -o $@
 
 bbbrew.o: bbbrew.c
-	$(CXX) $(CXX_FLAGS) -c -O2 $< -o $@
+	$(CXX) $(CXX_FLAGS) -c $< -o $@
 
 bbcsdl.o: bbcsdl.c bbcsdl.h version.h
-	$(CXX) $(CXX_FLAGS) -Wno-unused-result -c -O2 $< -o $@
+	$(CXX) $(CXX_FLAGS) -Wno-unused-result -c $< -o $@
 
 SDL2_gfxPrimitives.o: SDL2_gfxPrimitives.c SDL2_gfxPrimitives.h
-	$(CXX) $(CXX_FLAGS) -c -O2 $< -o $@
+	$(CXX) $(CXX_FLAGS) -c $< -o $@
 
 SDL2_rotozoom.o: SDL2_rotozoom.c SDL2_rotozoom.h SDL2_gfxPrimitives.h SDL_stbimage.h stb_image.h dr_mp3.h
-	$(CXX) $(CXX_FLAGS) -c -Os -fPIC $< -o $@
+	$(CXX) $(CXX_FLAGS) -c -fPIC $< -o $@
 
 flood.o: flood.c
-	$(CXX) $(CXX_FLAGS) -c -O3 $< -o $@
+	$(CXX) $(CXX_FLAGS) -c $< -o $@
 
 ifeq ($(TARGET),brew)
 bbdata.o: ../../src/bbdata_x86_64.nas
@@ -108,11 +124,9 @@ bbdata.o: ../../src/bbdata_x86_32.nas
 endif
 endif
 
-libstb.so: SDL2_rotozoom.o
-	$(CXX) $(CXX_FLAGS) -shared -o libstb.so SDL2_rotozoom.o
-	cp libstb.so ../../
+bbcb$(EXE_EXT): $(OBJ)
+	$(CXX) $(CXX_FLAGS) $(OBJ) -L . -o bbcb$(EXE_EXT) $(LIB)
 
-bbcb: $(OBJ)
-	$(CXX) $(CXX_FLAGS) $(OBJ) -L . \
-	-o bbcb $(LIB) -Wl,-s -Wl,-R,'$$ORIGIN'
-	cp bbcb ../../
+bbcb.bin: bbcb$(EXE_EXT)
+	$(OBJCOPY) --strip-all --output-target binary bbcb$(EXE_EXT) bbcb.bin
+	

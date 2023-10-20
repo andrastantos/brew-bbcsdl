@@ -35,10 +35,10 @@ typedef int timer_t ;
 #define ENABLE_VIRTUAL_TERMINAL_INPUT 0x200
 BOOL WINAPI K32EnumProcessModules (HANDLE, HMODULE*, DWORD, LPDWORD) ;
 #else
-#ifndef __BREW__
 #include <termios.h>
-#include <sys/mman.h>
 #include <sys/ioctl.h>
+#ifndef __BREW__
+#include <sys/mman.h>
 #include "dlfcn.h"
 #endif
 #include <signal.h>
@@ -364,7 +364,7 @@ int stdin_handler (int *px, int *py)
 
 	if (wait)
 	    {
-		printf ("\033[6n") ;
+		fputs ("\033[6n", stdout) ;
 		fflush (stdout) ;
 	    }
 
@@ -1126,11 +1126,11 @@ int oscall (int addr)
 		case 0xFFEE: // OSWRCH
 			oswrch (al) ;
 			return 0 ;
-
+#ifndef __BREW__
 		case 0xFFF1: // OSWORD
 			memcpy (xy + 1, &bbcfont[*(unsigned char*)(xy) << 3], 8) ;
 			return 0 ;
-
+#endif
 		case 0xFFF4: // OSBYTE
 			return (vgetc (0x80000000, 0x80000000) << 8) ;
 
@@ -1452,7 +1452,7 @@ long long getext (void *chan)
 		COMSTAT cs = {0} ;
 		ClearCommError ((HANDLE) _get_osfhandle (fileno (file)), NULL, &cs) ;
 		return cs.cbInQue ;
-#elif defined(__linux__) || defined(__APPLE__)
+#elif defined(__linux__) || defined(__APPLE__) || defined(__BREW__)
 		int waiting = 0 ;
 		ioctl (fileno (file), FIONREAD, &waiting) ;
 		return waiting ;
@@ -1671,15 +1671,15 @@ void SystemIO (int flag)
 #endif
 
 #ifdef __BREW__
-static void UserTimerProc (int sig, siginfo_t *si, void *uc)
-{
-	printf("BREW UserTimerProc needs implementation\n");
-}
+//static void UserTimerProc (int sig, siginfo_t *si, void *uc)
+//{
+//	printf("BREW UserTimerProc needs implementation\n");
+//}
 
 timer_t StartTimer (int period)
 {
 	printf("BREW StartTimer needs implementation\n");
-	timer_t timerid ;
+	timer_t timerid = 0;
 	return timerid ;
 }
 
@@ -1750,6 +1750,10 @@ HANDLE hThread = NULL ;
 		userRAM = (char*) VirtualAlloc (pstrVirtual, DEFAULT_RAM,
 						MEM_COMMIT, PAGE_EXECUTE_READWRITE) ;
 
+#endif
+
+#ifdef __BREW__
+static struct termios orig_termios ;
 #endif
 
 #ifdef __linux__
@@ -1952,9 +1956,6 @@ pthread_t hThread = NULL ;
 	if (GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), (LPDWORD) &orig_stdin))
 		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), ENABLE_VIRTUAL_TERMINAL_INPUT) ;
 	hThread = CreateThread (NULL, 0, myThread, 0, 0, NULL) ;
-#elif defined __BREW__
-	// Initalize terminal under BREW
-	printf("BREW CONSOLE PROBABLY DOESNT WORK AT THE MOMENT!!!!!\n");
 #else
 	tcgetattr (STDIN_FILENO, &orig_termios) ;
 	struct termios raw = orig_termios ;
@@ -1965,7 +1966,12 @@ pthread_t hThread = NULL ;
 	raw.c_cc[VMIN] = 0 ;
 	raw.c_cc[VTIME] = 1 ;
 	tcsetattr (STDIN_FILENO, TCSAFLUSH, &raw) ;
-        pthread_create(&hThread, NULL, &myThread, NULL);
+#if defined __BREW__
+	// Initalize terminal under BREW
+	printf("BREW CONSOLE PROBABLY DOESNT WORK AT THE MOMENT!!!!!\n");
+#else
+	pthread_create(&hThread, NULL, &myThread, NULL);
+#endif
 #endif
 
 #ifdef __APPLE__
