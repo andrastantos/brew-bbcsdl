@@ -311,8 +311,10 @@ register signed char *esi asm ("x27") ;	// Program pointer
 register heapptr *esp asm ("x28") ;	// Stack pointer
 #endif
 #ifdef __BREW__
+#ifndef __x86_64__
 register signed char *esi asm ("$r10") ;	// Program pointer
 register heapptr *esp asm ("$r11") ;	// Stack pointer
+#endif
 #endif
 #endif
 

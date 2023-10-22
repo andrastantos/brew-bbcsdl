@@ -61,6 +61,7 @@ static const signed char comnds[] = {
 	0x1D,'N','E','W',
 	0x1E,'R','E','N','U','M','B','E','R',
 	0x1F,'S','A','V','E',
+	0x20,'Q','U','I','T',
 	0x00,0x7F } ;
 
 // List of token values and associated keywords.
@@ -1758,6 +1759,9 @@ int basic (void *ecx, void *edx, void *prompt)
 					ossave (tmp, vpage + zero, gettop (vpage + zero, NULL) -
 						(signed char *) (vpage + zero) + 3) ;
 					break ;
+
+				case 0x20: // QUIT
+					prompt = NULL ;
 
 				default:
 					prompt = NULL ;

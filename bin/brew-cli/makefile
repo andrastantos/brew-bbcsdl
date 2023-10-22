@@ -7,7 +7,11 @@
 # sudo apt-get install libsdl2-net-2.0-0
 # sudo apt-get install nasm
 
+ifeq ($(TARGET),brew-none-elf)
 TARGET = brew
+endif
+
+TARGET ?= brew
 
 SDL_LIB = -L/usr/include -lSDL2 -lSDL2main -lSDL2_ttf -lSDL2_net -ldl -lm
 LBITS := $(shell getconf LONG_BIT)
@@ -38,12 +42,12 @@ EXE_EXT = .elf
 ASM_POSTFIX = _brew
 else
 CXX = gcc
-CXX_FLAGS = -Wall -pthread -I ../../include -g -O2
+CXX_FLAGS = -Wall -pthread -I ../../include -g -Og -D__BREW__ -U__linux__ -Wno-unused-result
 OBJCOPY = objcopy
-EXE_EXT = 
+EXE_EXT =
 ASM_POSTFIX = _x86_64
 endif
-CXX_FLAGS += -ffunction-sections -fdata-sections -Wl,--gc-sections -Xlinker -Map=bbcb.map 
+CXX_FLAGS += -ffunction-sections -fdata-sections -Wl,--gc-sections -Xlinker -Map=bbcb.map
 
 
 OBJ = $(OBJ_CORE) $(OBJ_CLI_EXTRA)
@@ -60,7 +64,7 @@ clean:
 	-rm bbcb$(EXE_EXT)
 	-rm bbcb.bin
 	-rm bbcb.map
-	
+
 build: clean all
 
 bbmain.o: bbmain.c BBC.h
@@ -129,4 +133,4 @@ bbcb$(EXE_EXT): $(OBJ)
 
 bbcb.bin: bbcb$(EXE_EXT)
 	$(OBJCOPY) --strip-all --output-target binary bbcb$(EXE_EXT) bbcb.bin
-	
+

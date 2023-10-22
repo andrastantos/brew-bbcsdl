@@ -152,9 +152,33 @@ static int putinp (unsigned char inp)
 	return 0 ;
 }
 
+#ifdef __BREW__
+void check_kbd()
+{
+	static int delay = 0;
+	char ch;
+	if (delay == 0) {
+		do {
+			unsigned char bl = inpqw ;
+			unsigned char al = (bl + 1) % QSIZE ;
+			if (al == inpqr) break;
+			// There is room in the input queue
+			if (read(0, &ch, 1) != 1) break;
+			putinp(ch);
+		} while (1);
+		delay = 50;
+	} else {
+		delay --;
+	}
+}
+#endif
+
 // Get from STDIN queue:
 static int getinp (unsigned char *pinp)
 {
+	#ifdef __BREW__
+	check_kbd();
+	#endif
 	unsigned char bl = inpqr ;
 	if (bl != inpqw)
 	    {
@@ -334,24 +358,32 @@ unsigned int GetTicks (void)
 
 static int kbchk (void)
 {
+	#ifdef __BREW__
+	check_kbd();
+	#endif
 	return (inpqr != inpqw) ;
 }
 
-static unsigned char kbget (void)
+#ifdef __BREW__
+static int kwait (unsigned int timeout)
 {
-	unsigned char ch = 0 ;
-	getinp (&ch) ;
-	return ch ;
+	if (kbchk())
+		return 1;
+	check_kbd();
+	return kbchk();
 }
-
+#else
 static int kwait (unsigned int timeout)
 {
 	int ready ;
 	timeout += GetTicks () ;
 	while (!(ready = kbchk ()) && (GetTicks() < timeout))
+	{
 		usleep (1) ;
+	}
 	return ready ;
 }
+#endif
 
 // Returns 1 if the cursor position was read successfully or 0 if it was aborted
 // (in which case *px and *py will be unchanged) or if px and py are both NULL.
@@ -369,67 +401,67 @@ int stdin_handler (int *px, int *py)
 	    }
 
 	do
-	    {
+		{
 		if (kbchk ())
-		    {
-			ch = kbget () ;
+			{
+			if (getinp(&ch)) {
+				if (ch == 0x1B)
+					{
+					if (p != report)
+						q = p ;
+					*p++ = 0x1B ;
+					}
+				else if (p != report)
+					{
+					if (p < report + sizeof(report))
+						*p++ = ch ;
+					if ((ch >= 'A') && (ch <= '~') && (ch != '[') && (ch != 'O') &&
+						((*(q + 1) == '[') || (*(q + 1) == 'O')))
+						{
+						p = q ;
+						q = report ;
 
-			if (ch == 0x1B)
-			    {
-				if (p != report)
-					q = p ;
-				*p++ = 0x1B ;
-			    }
-			else if (p != report)
-			    {
-				if (p < report + sizeof(report))
-					*p++ = ch ;
-				if ((ch >= 'A') && (ch <= '~') && (ch != '[') && (ch != 'O') &&
-					((*(q + 1) == '[') || (*(q + 1) == 'O')))
-				    {
-					p = q ;
-					q = report ;
-
-					if (ch == 'R')
-					    {
-						int row = 0, col = 0 ;
-						if (sscanf (p, "\033[%d;%dR", &row, &col) == 2)
-						    {
-							if (px) *px = col - 1 ;
-							if (py) *py = row - 1 ;
-							return 1 ;
-						    }
-					    }
-					if (ch == '~')
-					    {
-						int key ;
-						if (sscanf (p, "\033[%d~", &key))
-							putkey (xkey[key + 32]) ;
-					    }
-					else
-						putkey (xkey[ch - 64]) ;
-				    }
-			    }
-			else
-			    {
-				putkey (ch) ;
-				if (((kbdqr - kbdqw - 1) & 0xFF) < 50)
-				    {
-					p = report ;
-					q = report ;
-					wait = 0 ; // abort
-				    }
-			    }
-		    }
-		if ((wait || (p != report)) && !kwait (wait ? QRYTIME : ESCTIME))
-		    {
-			q = report ;
-			while (q < p) putkey (*q++) ;
-			p = report ;
-			q = report ;
-			wait = 0 ; // abort
-		    }
-	    }
+						if (ch == 'R')
+							{
+							int row = 0, col = 0 ;
+							if (sscanf (p, "\033[%d;%dR", &row, &col) == 2)
+								{
+								if (px) *px = col - 1 ;
+								if (py) *py = row - 1 ;
+								return 1 ;
+								}
+							}
+						if (ch == '~')
+							{
+							int key ;
+							if (sscanf (p, "\033[%d~", &key))
+								putkey (xkey[key + 32]) ;
+							}
+						else
+							putkey (xkey[ch - 64]) ;
+						}
+					}
+				else
+					{
+					putkey (ch) ;
+					if (((kbdqr - kbdqw - 1) & 0xFF) < 50)
+						{
+						p = report ;
+						q = report ;
+						wait = 0 ; // abort
+						}
+					}
+				}
+			if ((wait || (p != report)) && !kwait (wait ? QRYTIME : ESCTIME))
+				{
+				q = report ;
+				while (q < p) putkey (*q++) ;
+				p = report ;
+				q = report ;
+				wait = 0 ; // abort
+				}
+			}
+		}
 	while (wait || (p != report)) ;
 	return 0 ;
 }
@@ -1960,7 +1992,9 @@ pthread_t hThread = NULL ;
 	tcgetattr (STDIN_FILENO, &orig_termios) ;
 	struct termios raw = orig_termios ;
 	raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON) ;
+#ifndef __BREW__
 	raw.c_oflag &= ~OPOST ;
+#endif
 	raw.c_cflag |= CS8 ;
 	raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG) ;
 	raw.c_cc[VMIN] = 0 ;
@@ -1998,7 +2032,6 @@ pthread_t hThread = NULL ;
 		SetConsoleMode (GetStdHandle(STD_OUTPUT_HANDLE), orig_stdout) ;
 	if (orig_stdin != -1)
 		SetConsoleMode (GetStdHandle(STD_INPUT_HANDLE), orig_stdin) ;
-#elif defined __BREW__
 #else
 	if (isatty (STDOUT_FILENO))
 		printf ("\033[0m\033[!p") ;
